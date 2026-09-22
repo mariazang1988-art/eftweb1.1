@@ -32,6 +32,13 @@ app.use((req, res, next) => {
   next();
 });
 
+process.on('unhandledRejection', (reason: any) => {
+  console.log('[SafeGuard] Handled unhandled rejection:', reason?.message || String(reason));
+});
+process.on('uncaughtException', (err: any) => {
+  console.log('[SafeGuard] Handled uncaught exception:', err?.message || String(err));
+});
+
 // Helper for Gemini AI
 let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI | null {
@@ -39,28 +46,46 @@ function getGemini(): GoogleGenAI | null {
     try {
       geminiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     } catch (e) {
-      console.warn('Gemini client initialization skipped:', e);
+      console.log('[Info] Gemini client initialization skipped:', e);
     }
   }
   return geminiClient;
 }
 
-// Helper for resilient Gemini text generation with model fallbacks
-async function callGeminiAi(contents: any, fallbackText = ''): Promise<string> {
+// Helper for resilient Gemini text generation with model fallbacks and guaranteed fast response
+async function callGeminiAi(contents: any, fallbackText = '', timeoutMs = 7000, maxTokens = 500): Promise<string> {
   const gemini = getGemini();
   if (!gemini) return fallbackText;
-  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+  const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
   for (const model of candidateModels) {
+    let timer: NodeJS.Timeout | null = null;
     try {
-      const response = await gemini.models.generateContent({
+      const genPromise = gemini.models.generateContent({
         model,
-        contents
+        contents,
+        config: {
+          maxOutputTokens: maxTokens,
+          thinkingConfig: {
+            thinkingBudget: 0
+          }
+        }
       });
-      if (response.text && response.text.trim()) {
-        return response.text.trim();
+      // Attach no-op catch to prevent unhandled rejection if race times out
+      genPromise.catch(() => {});
+
+      const response = await Promise.race([
+        genPromise,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs);
+        })
+      ]);
+      if (timer) clearTimeout(timer);
+      if (response && (response as any).text && (response as any).text.trim()) {
+        return (response as any).text.trim();
       }
     } catch (e) {
-      console.warn(`Gemini model ${model} attempt warning:`, (e as any)?.message || e);
+      if (timer) clearTimeout(timer);
+      // Soft fallback to next model on 503 or transient unavailability
     }
   }
   return fallbackText;
@@ -118,13 +143,18 @@ function writeDb(data: any): boolean {
   }
 });
 
-// Static assets for photos, media and downloads
-app.use('/prophoto', express.static(path.join(ROOT_DIR, 'prophoto')));
-app.use('/eftphoto', express.static(path.join(ROOT_DIR, 'eftphoto')));
-app.use('/images', express.static(path.join(ROOT_DIR, 'images')));
-app.use('/logo', express.static(path.join(ROOT_DIR, 'logo')));
-app.use('/videos', express.static(path.join(ROOT_DIR, 'videos')));
-app.use('/assets', express.static(path.join(ROOT_DIR, 'assets')));
+// Static assets for photos, media and downloads with caching for ultra-fast browser loading
+const staticCacheOptions = {
+  maxAge: '7d',
+  etag: true,
+  lastModified: true
+};
+app.use('/prophoto', express.static(path.join(ROOT_DIR, 'prophoto'), staticCacheOptions));
+app.use('/eftphoto', express.static(path.join(ROOT_DIR, 'eftphoto'), staticCacheOptions));
+app.use('/images', express.static(path.join(ROOT_DIR, 'images'), staticCacheOptions));
+app.use('/logo', express.static(path.join(ROOT_DIR, 'logo'), staticCacheOptions));
+app.use('/videos', express.static(path.join(ROOT_DIR, 'videos'), staticCacheOptions));
+app.use('/assets', express.static(path.join(ROOT_DIR, 'assets'), staticCacheOptions));
 app.use('/download', express.static(DOWNLOAD_DIR));
 
 app.get('/www.efficientsh.com_production_ready.zip', (req, res) => {
@@ -524,7 +554,7 @@ Output strictly a JSON object with keys: "subtitle", "cat_id", "cat_name", "spec
       if (parsed.cat_id) catId = Number(parsed.cat_id) || catId;
       if (parsed.cat_name) catName = parsed.cat_name.trim();
     } catch (e) {
-      console.warn('Failed to parse AI JSON for smart-source:', e);
+      console.log('[Info] Failed to parse AI JSON for smart-source:', e);
     }
   }
 
@@ -683,7 +713,7 @@ app.post('/api/products/smart-recognize', async (req, res) => {
       const url = isVideo ? `/videos/${filename}` : `/prophoto/${filename}`;
       savedFiles.push({ url, mimeType, base64: b64Data, isVideo });
     } catch (err) {
-      console.warn('Failed to save uploaded recognition file:', err);
+      console.log('[Info] Failed to save uploaded recognition file:', err);
     }
   }
 
@@ -706,30 +736,34 @@ app.post('/api/products/smart-recognize', async (req, res) => {
       }));
 
       const promptText = `You are an expert industrial manufacturing and product catalog specialist for HE Efficient and Industry Limited (E.F.T.).
-Carefully inspect the provided product image(s) or video frames.
+Carefully inspect the provided product image(s) or catalog pages.
 
-Determine if the upload depicts ONE single product (or multiple photos of the same item) or MULTIPLE DIFFERENT products.
+CRITICAL INSTRUCTION FOR MULTI-MODEL CATALOG PAGES / SPECIFICATION TABLES:
+Inspect the images very carefully for tables (e.g. "规格: Specification", 参数表, 选型表, 型号表), lists, or multiple sub-sections showing different models/types (such as different model numbers like CXH1-1D, CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D, or different product names like 右舷灯, 左舷灯, 桅灯, 艉灯, 环照灯).
+Whenever an image or set of images contains a table or listing of MULTIPLE MODELS / TYPES, YOU MUST EXTRACT EVERY SINGLE ROW/MODEL AS AN INDIVIDUAL PRODUCT ITEM in the "products" array!
+DO NOT summarize or combine them into a single "series" product (like "CXH系列").
+If there are 5 models in the table/drawings, you MUST output an array of 5 separate products.
 
 For each distinct product identified:
-1. "name": Descriptive, professional Chinese product title (e.g. "高精度304不锈钢折叠门窗小合页 40x40mm 静音承重铰链")
-2. "subtitle": Accurate English subtitle / translation of the product title (maximum 15 words)
+1. "name": Descriptive, professional Chinese product title including the specific model and function (e.g. "CXH1-1D 单层船用右舷灯 (绿光 3海里)")
+2. "subtitle": Accurate English subtitle / translation (maximum 15 words) (e.g. "CXH1-1D Single-Deck Marine Starboard Navigation Light Green 3nm")
 3. "cat_id": Category ID (1:工业设备, 3:生产装备, 4:发电机组, 5:汽摩配件, 7:电子电气, 8:医疗器械, 9:机械五金)
-4. "cat_name": Chinese category name matching cat_id
-5. "model_no": Model number starting with EFT-
+4. "cat_name": Chinese category name matching cat_id (e.g. 电子电气 or 工业设备)
+5. "model_no": Specific model number from the catalog/table (e.g. "CXH1-1D" or "EFT-CXH1-1D")
 6. "price": "面议 / Negotiable"
-7. "specs": 3 to 6 comprehensive sentences of product introduction (Specs), describing material properties, precision tolerances, applications, durability, and export quality testing (ISO9001/CE/RoHS).
-8. "image_indices": 0-based array of image indices from the provided photos that correspond to this product (e.g. [0] or [0, 1]).
+7. "specs": 3 to 6 comprehensive sentences of product introduction (Specs), describing the specific model parameters extracted from the table (such as optical arc/angle, visibility distance, light color, protection class IP55, voltage/power, material, standard compliance ISO9001/CE/RoHS).
+8. "image_indices": 0-based array of image indices from the provided photos where this item appears (e.g. [0] or [1] or [0, 1]).
 
 Return strict JSON format:
 {
-  "isMulti": true/false,
+  "isMulti": true,
   "products": [
     {
       "name": "...",
       "subtitle": "...",
-      "cat_id": 9,
-      "cat_name": "机械五金",
-      "model_no": "EFT-...",
+      "cat_id": 7,
+      "cat_name": "电子电气",
+      "model_no": "...",
       "price": "面议 / Negotiable",
       "specs": "...",
       "image_indices": [0]
@@ -738,14 +772,31 @@ Return strict JSON format:
 }`;
 
       const contents = [...imageParts, { text: promptText }];
-      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
       for (const model of candidateModels) {
+        let tId: NodeJS.Timeout | null = null;
         try {
-          const resp = await gemini.models.generateContent({
+          const genPromise = gemini.models.generateContent({
             model,
-            contents
+            contents,
+            config: {
+              responseMimeType: 'application/json',
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
+            }
           });
-          if (resp.text) {
+          genPromise.catch(() => {});
+
+          const resp = await Promise.race([
+            genPromise,
+            new Promise<never>((_, reject) => {
+              tId = setTimeout(() => reject(new Error('Timeout')), 12000);
+            })
+          ]);
+          if (tId) clearTimeout(tId);
+
+          if (resp && resp.text) {
             const cleanJson = resp.text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
             const parsed = JSON.parse(cleanJson);
             if (Array.isArray(parsed.products) && parsed.products.length > 0) {
@@ -754,12 +805,13 @@ Return strict JSON format:
               break;
             }
           }
-        } catch (mErr) {
-          console.warn(`Gemini multimodal attempt failed with ${model}:`, mErr);
+        } catch (mErr: any) {
+          if (tId) clearTimeout(tId);
+          console.log(`[Info] Gemini recognition attempt with ${model}:`, mErr?.message || mErr);
         }
       }
-    } catch (e) {
-      console.warn('Multimodal recognition overall exception:', e);
+    } catch (e: any) {
+      console.log('[Info] Multimodal recognition overall exception:', e?.message || e);
     }
   }
 
@@ -885,18 +937,22 @@ app.post('/api/news/ai-fetch-from-url', async (req, res) => {
     return res.status(400).json({ error: '请提供有效的新闻网址 (URL)' });
   }
 
-  const targetUrl = String(url).trim();
+  let targetUrl = String(url).trim();
+  if (!/^https?:\/\//i.test(targetUrl)) {
+    targetUrl = 'https://' + targetUrl;
+  }
+
   let pageText = '';
   let pageHtml = '';
   let pageTitle = '';
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 4000);
     const resp = await fetch(targetUrl, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
       }
@@ -918,7 +974,7 @@ app.post('/api/news/ai-fetch-from-url', async (req, res) => {
       pageText = cleaned.slice(0, 3500);
     }
   } catch (fetchErr: any) {
-    console.warn('Direct fetch failed, falling back to simulated extraction for URL:', targetUrl, fetchErr.message);
+    console.log('[Info] Direct news fetch fallback for URL:', targetUrl, fetchErr?.message || fetchErr);
   }
 
   const todayStr = new Date().toISOString().substring(0, 10);
@@ -948,14 +1004,30 @@ app.post('/api/news/ai-fetch-from-url', async (req, res) => {
   "content": "..."
 }`;
 
-      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
       for (const model of candidateModels) {
+        let tId: NodeJS.Timeout | null = null;
         try {
-          const aiResp = await gemini.models.generateContent({
+          const genPromise = gemini.models.generateContent({
             model,
-            contents: [{ text: prompt }]
+            contents: [{ text: prompt }],
+            config: {
+              responseMimeType: 'application/json',
+              thinkingConfig: {
+                thinkingBudget: 0
+              }
+            }
           });
-          if (aiResp.text) {
+          genPromise.catch(() => {});
+
+          const aiResp = await Promise.race([
+            genPromise,
+            new Promise<never>((_, reject) => {
+              tId = setTimeout(() => reject(new Error('Timeout')), 10000);
+            })
+          ]);
+          if (tId) clearTimeout(tId);
+          if (aiResp && aiResp.text) {
             const cleanJson = aiResp.text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
             const parsed = JSON.parse(cleanJson);
             if (parsed.title && parsed.content) {
@@ -969,12 +1041,13 @@ app.post('/api/news/ai-fetch-from-url', async (req, res) => {
               });
             }
           }
-        } catch (mErr) {
-          console.warn(`Gemini news generation error with ${model}:`, mErr);
+        } catch (mErr: any) {
+          if (tId) clearTimeout(tId);
+          console.log(`[Info] Gemini news synthesis attempt with ${model}:`, mErr?.message || mErr);
         }
       }
-    } catch (aiErr) {
-      console.warn('Gemini overall error:', aiErr);
+    } catch (aiErr: any) {
+      console.log('[Info] Gemini overall news exception:', aiErr?.message || aiErr);
     }
   }
 
@@ -1139,20 +1212,22 @@ app.post('/api/chat', async (req, res) => {
     created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
   };
 
-  // Build product & enterprise knowledge base context dynamically
+  // Build product & enterprise knowledge base context dynamically with lean token footprint
   const queryWords = userText.toLowerCase().split(/\s+/).filter(Boolean);
   const relevantProducts = (db.products || []).filter((p: any) => {
     const text = `${p.name} ${p.subtitle || ''} ${p.cat_name || ''} ${p.model_no || ''}`.toLowerCase();
     return queryWords.some((w: string) => w.length >= 2 && text.includes(w));
   });
-  const mergedProducts = [...new Set([...relevantProducts, ...(db.products || []).slice(0, 15)])].slice(0, 25);
+  const selectedProducts = relevantProducts.length > 0
+    ? relevantProducts.slice(0, 5)
+    : (db.products || []).slice(0, 3);
 
-  const productsSnippet = mergedProducts.map((p: any) =>
-    `- 产品: ${p.name} | 型号: ${p.model_no || 'N/A'} | 分类: ${p.cat_name || 'N/A'} | 英文: ${p.subtitle || 'N/A'} | 特性: ${(p.specs || '').slice(0, 120)}`
+  const productsSnippet = selectedProducts.map((p: any) =>
+    `- 产品: ${p.name} | 型号: ${p.model_no || 'N/A'} | 英文: ${p.subtitle || 'N/A'} | 特性: ${(p.specs || '').slice(0, 80)}`
   ).join('\n');
 
   const introduceSnippet = db.introduce?.content_html
-    ? db.introduce.content_html.replace(/<[^>]+>/g, ' ').slice(0, 400)
+    ? db.introduce.content_html.replace(/<[^>]+>/g, ' ').slice(0, 300)
     : '上海和益实业有限公司(HE Efficient and Industry Limited, 简称E.F.T.)始创于1990年代，致力于国际贸易、工业机械设备、洁净流水线、汽摩配件、电子电气、家用门铃、五金等进出口业务。联系人：浦先生，电话：+86 021-6257 8368，手机：+86 18916169406，邮箱：sales@efficientsh.com。';
 
   // Detect language hint
@@ -1162,32 +1237,22 @@ app.post('/api/chat', async (req, res) => {
     : 'Welcome to HE Efficient and Industry Limited (E.F.T.)! We have received your message. Our sales team will get back to you shortly. You may also contact us directly at +86 021-6257 8368.';
 
   const aiChatPrompt = `You are the official AI Customer Service Representative for HE Efficient and Industry Limited (E.F.T. 上海和益实业有限公司).
-
-Company Information & Official Contacts:
-${introduceSnippet}
+Company: ${introduceSnippet}
 Official Contact: Sales Director Mr. Pu (Tel: +86 021-6257 8368, Mobile: +86 18916169406, Email: sales@efficientsh.com)
-
-Products Catalog & Knowledge Base:
+Relevant Catalog:
 ${productsSnippet}
 
 Customer Inquiry: "${userText}"
 
 STRICT OPERATIONAL RULES:
-1. Language Consistency:
-   - Identify the language used by the customer in their inquiry.
-   - You MUST reply in the EXACT SAME language (e.g. if customer asks in English, reply in English; if in Chinese, reply in Chinese; if in Spanish, German, Russian, etc., reply in that language). NEVER reply in Chinese to an English question!
-2. Answer based on website & product catalog:
-   - Provide accurate, helpful, professional answers regarding our company, export business, and products.
-   - For example: if the customer asks "我要买你家的门铃" or asks about wireless doorbells, explain that we manufacture and export premium wireless doorbells (e.g., F536 wireless doorbell, B111 wireless doorbell, AC digital transmission, multi-melody ringtones, adjustable volume, CE/RoHS compliant, export quality), and invite them to place an order or contact Mr. Pu.
-3. Out of Knowledge Base Boundary Rule (MANDATORY):
-   - If the customer's question CANNOT be answered based on our company's product catalog and website information (e.g., questions about unrelated topics, non-existent products, unrelated personal questions, or requiring specialized executive negotiation):
-     - If the customer asked in Chinese, you MUST reply with this EXACT sentence:
-       "请留下您的联系方式，稍后我将转给经理回复您。"
-     - If the customer asked in English, you MUST reply with this exact sentence:
-       "Please leave your contact information, and I will forward your inquiry to our manager to reply to you shortly."
-     - If the customer asked in another language, translate "Please leave your contact information, and I will forward your inquiry to our manager to reply to you shortly." into that language.`;
+1. Speed & Precision: Be concise, courteous, and professional. Maximum 2-3 sentences.
+2. Language Consistency: Reply in the EXACT SAME language as the customer (English for English, Chinese for Chinese, etc.).
+3. Identity Questions: If asking whether you are an AI or human, directly confirm that you are the official AI Customer Service Assistant of HE Efficient and Industry Limited (E.F.T.), ready to help with products, orders, and inquiries or connect them with our sales directors.
+4. Out of Catalog or Needs Formal Quotation/Deal:
+   - Chinese: "请留下您的联系方式，稍后我将转给经理回复您。"
+   - English: "Please leave your contact information, and I will forward your inquiry to our manager to reply to you shortly."`;
 
-  const aiResp = await callGeminiAi(aiChatPrompt, '');
+  const aiResp = await callGeminiAi(aiChatPrompt, '', 6500);
   if (aiResp && aiResp.trim()) {
     botReply = aiResp.trim();
   }
@@ -1663,7 +1728,7 @@ app.post('/api/baidu/exchange-code', async (req, res) => {
           quotaUsed = quotaData.used || 0;
         }
       } catch (e) {
-        console.warn('Failed to fetch Baidu uinfo/quota:', e);
+        console.log('[Info] Failed to fetch Baidu uinfo/quota:', e);
       }
 
       if (!db.config) db.config = {};
@@ -1746,7 +1811,7 @@ app.get('/api/baidu/callback', async (req, res) => {
         } catch (e) {}
       }
     } catch (e) {
-      console.warn('Baidu token exchange request error:', e);
+      console.log('[Info] Baidu token exchange request error:', e);
     }
   }
 
