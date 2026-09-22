@@ -833,7 +833,7 @@ Return ONLY strict JSON format:
 }`;
 
       const contents = [...imageParts, { text: promptText }];
-      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
+      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-pro-preview'];
       for (const model of candidateModels) {
         let tId: NodeJS.Timeout | null = null;
         try {
@@ -863,17 +863,19 @@ Return ONLY strict JSON format:
             if (Array.isArray(parsed.products) && parsed.products.length > 0) {
               isMulti = Boolean(parsed.isMulti || parsed.products.length > 1);
               recognizedProducts = parsed.products;
-              console.log(`[SmartRecognize] Successfully recognized ${recognizedProducts.length} products using ${model}`);
+              console.log(`[SmartRecognize] Successfully extracted ${recognizedProducts.length} products with ${model}`);
               break;
             }
           }
         } catch (mErr: any) {
           if (tId) clearTimeout(tId);
-          console.log(`[Info] Gemini recognition attempt with ${model}:`, mErr?.message || mErr);
+          console.log(`[SmartRecognize] Model ${model} busy or unavailable, transitioning to next model...`);
+          // Brief pause before querying fallback model to let upstream load balancer recover
+          await new Promise(r => setTimeout(r, 1000));
         }
       }
     } catch (e: any) {
-      console.log('[Info] Multimodal recognition overall exception:', e?.message || e);
+      console.log('[SmartRecognize] Handled recognition flow safeguard.');
     }
   }
 

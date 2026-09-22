@@ -1,0 +1,35 @@
+# ==============================================================================
+# HE Efficient and Industry Limited (E.F.T.) Apache 生产环境伪静态与反向重写规则
+# 适用于 Ubuntu + Apache2 + PHP 环境
+# ==============================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # 1. 优先提供实际存在的物理文件或目录 (HTML, CSS, JS, 图片, 视频等)
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # 2. 将所有 /api/* 请求重定向至独立 PHP API 引擎
+    RewriteRule ^api/(.*)$ api/index.php [QSA,L]
+
+    # 3. 前端单页应用 (SPA) 路由兜底至 index.html
+    RewriteRule ^(.*)$ index.html [QSA,L]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # 允许跨域与基础安全响应头
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-API-Key"
+    
+    # 静态资源缓存策略
+    <FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|js|css|swf|webp|svg)$">
+        Header set Cache-Control "max-age=2592000, public"
+    </FilesMatch>
+</IfModule>
+
+# 禁用目录浏览列表
+Options -Indexes
