@@ -5,6 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import crypto from 'crypto';
+import sharp from 'sharp';
 // @ts-ignore
 const archiver = typeof require !== 'undefined' ? require('archiver') : null;
 
@@ -154,6 +155,13 @@ app.use('/eftphoto', express.static(path.join(ROOT_DIR, 'eftphoto'), staticCache
 app.use('/images', express.static(path.join(ROOT_DIR, 'images'), staticCacheOptions));
 app.use('/logo', express.static(path.join(ROOT_DIR, 'logo'), staticCacheOptions));
 app.use('/videos', express.static(path.join(ROOT_DIR, 'videos'), staticCacheOptions));
+// In production, prioritize built dist/assets if available
+if (process.env.NODE_ENV === 'production') {
+  const distAssetsPath = path.join(ROOT_DIR, 'dist', 'assets');
+  if (fs.existsSync(distAssetsPath)) {
+    app.use('/assets', express.static(distAssetsPath, staticCacheOptions));
+  }
+}
 // Serve app.js with no-cache to guarantee live preview and updates load immediately
 app.get('/assets/app.js', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -699,7 +707,7 @@ app.post('/api/products/smart-recognize', async (req, res) => {
   if (!fs.existsSync(prophotoDir)) fs.mkdirSync(prophotoDir, { recursive: true });
   if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
 
-  const savedFiles: { url: string; mimeType: string; base64: string; isVideo: boolean }[] = [];
+  const savedFiles: { url: string; filepath: string; mimeType: string; base64: string; isVideo: boolean }[] = [];
 
   for (let i = 0; i < files.length; i++) {
     const item = files[i];
@@ -718,7 +726,7 @@ app.post('/api/products/smart-recognize', async (req, res) => {
       const destPath = isVideo ? path.join(videosDir, filename) : path.join(prophotoDir, filename);
       fs.writeFileSync(destPath, buffer);
       const url = isVideo ? `/videos/${filename}` : `/prophoto/${filename}`;
-      savedFiles.push({ url, mimeType, base64: b64Data, isVideo });
+      savedFiles.push({ url, filepath: destPath, mimeType, base64: b64Data, isVideo });
     } catch (err) {
       console.log('[Info] Failed to save uploaded recognition file:', err);
     }
@@ -733,6 +741,47 @@ app.post('/api/products/smart-recognize', async (req, res) => {
   let recognizedProducts: any[] = [];
   let isMulti = false;
 
+  // Helper to normalize any bounding box format into [ymin, xmin, ymax, xmax] (0-1000)
+  function normalizeBox(raw: any): [number, number, number, number] | null {
+    if (!raw) return null;
+    let b = raw;
+    if (typeof b === 'string') {
+      try { b = JSON.parse(b); } catch {}
+    }
+    if (Array.isArray(b)) {
+      if (Array.isArray(b[0])) b = b[0];
+      if (b.length === 4) {
+        const y1 = Math.round(Number(b[0]));
+        const x1 = Math.round(Number(b[1]));
+        const y2 = Math.round(Number(b[2]));
+        const x2 = Math.round(Number(b[3]));
+        if (!isNaN(y1) && !isNaN(x1) && !isNaN(y2) && !isNaN(x2)) {
+          return [
+            Math.max(0, Math.min(1000, Math.min(y1, y2))),
+            Math.max(0, Math.min(1000, Math.min(x1, x2))),
+            Math.max(0, Math.min(1000, Math.max(y1, y2))),
+            Math.max(0, Math.min(1000, Math.max(x1, x2)))
+          ];
+        }
+      }
+    }
+    if (typeof b === 'object' && b !== null) {
+      const ymin = Math.round(Number(b.ymin ?? b.top ?? b.y1 ?? b.box_2d?.[0]));
+      const xmin = Math.round(Number(b.xmin ?? b.left ?? b.x1 ?? b.box_2d?.[1]));
+      const ymax = Math.round(Number(b.ymax ?? b.bottom ?? b.y2 ?? b.box_2d?.[2]));
+      const xmax = Math.round(Number(b.xmax ?? b.right ?? b.x2 ?? b.box_2d?.[3]));
+      if (!isNaN(ymin) && !isNaN(xmin) && !isNaN(ymax) && !isNaN(xmax)) {
+        return [
+          Math.max(0, Math.min(1000, Math.min(ymin, ymax))),
+          Math.max(0, Math.min(1000, Math.min(xmin, xmax))),
+          Math.max(0, Math.min(1000, Math.max(ymin, ymax))),
+          Math.max(0, Math.min(1000, Math.max(xmin, xmax)))
+        ];
+      }
+    }
+    return null;
+  }
+
   if (gemini) {
     try {
       const imageParts = savedFiles.filter(f => !f.isVideo).slice(0, 6).map(f => ({
@@ -742,48 +791,43 @@ app.post('/api/products/smart-recognize', async (req, res) => {
         }
       }));
 
-      const promptText = `You are an expert industrial manufacturing and product catalog specialist for HE Efficient and Industry Limited (E.F.T.).
-Carefully inspect the provided product image(s) or catalog pages.
+      const promptText = `You are an expert industrial manufacturing specialist for HE Efficient and Industry Limited (E.F.T.).
+Analyze all provided images (spec sheet / catalog / product photos).
+The images may contain a table or section listing multiple models (e.g. CXH1-1D, CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D) AND individual product photos/diagrams corresponding to each model (e.g. photos of individual lamps or components at the bottom, top, or sides).
 
-CRITICAL MANDATE FOR MULTI-MODEL CATALOG PAGES / SPECIFICATION TABLES:
-1. ALWAYS inspect the image(s) for tables (e.g. "规格: Specification", 参数表, 选型表, 型号表, 规格参数), lists, or multiple sub-sections showing different models/types (such as model numbers like CXH1-1D, CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D, or product types like 右舷灯, 左舷灯, 桅灯, 艉灯, 环照灯).
-2. DO NOT output a single consolidated "series" product (such as "CXH-1D 单层航行信号灯" or "CXH系列").
-3. EVERY ROW OR SUB-MODEL in a specification table represents an INDEPENDENT PRODUCT. You MUST output an individual product item for each model row!
-   For example, in a marine signal light catalog page:
-   - Model CXH1-1D (右舷灯 starboard light, 绿光 Green, 112.5°, 3n.m) -> Product 1
-   - Model CXH2-1D (左舷灯 port light, 红光 Red, 112.5°, 3n.m) -> Product 2
-   - Model CXH3-1D (桅灯 masthead light, 明光 Transparent/White, 225°, 6n.m) -> Product 3
-   - Model CXH4-1D (艉灯 stern light, 明光/黄光 Transparent/Yellow, 135°, 3n.m) -> Product 4
-   - Model CXH6-1D (环照灯 all-round light, 红/绿/明光, 360°, 3n.m) -> Product 5
-   If a table has 5 distinct models, your "products" array MUST contain exactly 5 separate product items!
-4. MULTI-IMAGE CORRELATION:
-   If multiple images are provided (e.g. Image 0 has the catalog text and specification table, and Image 1 has the physical photos or CAD drawings of the various models):
-   - Cross-reference the models across both images.
-   - For "image_indices", list the 0-based index of the image(s) where this model appears (e.g. [0] for CXH1-1D, [1] or [1, 0] for CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D).
+CRITICAL REQUIREMENTS:
+1. EVERY DISTINCT PRODUCT MODEL ROW or individual product photo is an INDEPENDENT PRODUCT. You MUST output an individual product item for each model row!
+   DO NOT combine them into one general series!
+2. INDIVIDUAL PRODUCT PHOTO LOCATION:
+   For EACH product model, locate where its corresponding visual photograph/illustration/drawing is located across the uploaded images:
+   - "image_index": 0-based integer index of the image (0, 1, ...) containing this specific product's photo.
+   - "box_2d": [ymin, xmin, ymax, xmax] coordinates (integers 0 to 1000) tightly framing the physical product photo/drawing for this model (locate the actual equipment photograph/drawing, NOT the table text row!).
 
 For each distinct product identified:
 1. "name": Descriptive, professional Chinese product title including the specific model and function (e.g. "CXH1-1D 单层船用右舷灯 (绿光 3海里)")
-2. "subtitle": Accurate English subtitle / translation (maximum 15 words) (e.g. "CXH1-1D Single-Deck Marine Starboard Navigation Light Green 3nm")
-3. "cat_id": Category ID (1:工业设备, 3:生产装备, 4:发电机组, 5:汽摩配件, 7:电子电气, 8:医疗器械, 9:机械五金). For marine electrical / navigation signal lights, use 7:电子电气 or 1:工业设备.
-4. "cat_name": Chinese category name matching cat_id (e.g. "电子电气" or "工业设备")
+2. "subtitle": Concise English subtitle / translation (maximum 15 words) (e.g. "Single-Deck Marine Starboard Navigation Signal Light 3nm")
+3. "cat_id": Category ID (1:工业机械设备, 2:洁净流水线, 3:汽摩配件, 4:电子电气, 5:家用门铃, 6:五金工具)
+4. "cat_name": Chinese category name matching cat_id (e.g. "电子电气" or "工业机械设备")
 5. "model_no": Specific model number from the catalog/table (e.g. "CXH1-1D", "CXH2-1D", "CXH3-1D", "CXH4-1D", "CXH6-1D")
 6. "price": "面议 / Negotiable"
 7. "specs": 3 to 6 comprehensive sentences of product introduction (Specs), describing the specific model parameters extracted from the table (such as optical arc/angle, visibility distance, light color, protection class IP55, voltage/power, material steel, standard compliance ISO9001/CE/RoHS).
-8. "image_indices": 0-based array of image indices from the provided photos where this item appears (e.g. [0] or [1] or [0, 1]).
+8. "image_index": 0-based integer of the image containing this specific product's photo.
+9. "box_2d": [ymin, xmin, ymax, xmax] (normalized integers 0 to 1000) tightly framing the physical product photo.
 
-Return strict JSON format:
+Return ONLY strict JSON format:
 {
   "isMulti": true,
   "products": [
     {
       "name": "...",
       "subtitle": "...",
-      "cat_id": 7,
+      "cat_id": 4,
       "cat_name": "电子电气",
       "model_no": "...",
       "price": "面议 / Negotiable",
       "specs": "...",
-      "image_indices": [0]
+      "image_index": 0,
+      "box_2d": [ymin, xmin, ymax, xmax]
     }
   ]
 }`;
@@ -808,7 +852,7 @@ Return strict JSON format:
           const resp = await Promise.race([
             genPromise,
             new Promise<never>((_, reject) => {
-              tId = setTimeout(() => reject(new Error('Timeout')), 45000);
+              tId = setTimeout(() => reject(new Error('Timeout')), 60000);
             })
           ]);
           if (tId) clearTimeout(tId);
@@ -819,6 +863,7 @@ Return strict JSON format:
             if (Array.isArray(parsed.products) && parsed.products.length > 0) {
               isMulti = Boolean(parsed.isMulti || parsed.products.length > 1);
               recognizedProducts = parsed.products;
+              console.log(`[SmartRecognize] Successfully recognized ${recognizedProducts.length} products using ${model}`);
               break;
             }
           }
@@ -836,35 +881,100 @@ Return strict JSON format:
   if (recognizedProducts.length === 0) {
     recognizedProducts = [
       {
-        name: `EFT高精制造智能工业组件 MD-${Math.floor(1000 + Math.random() * 9000)}`,
-        subtitle: 'Precision Engineered Industrial Components - Global Export Standard',
+        name: `EFT工业设备组件 (请核对参数)`,
+        subtitle: 'Industrial Components - Please review or edit specifications',
         cat_id: 1,
         cat_name: '工业设备',
-        model_no: `EFT-MD-${Math.floor(1000 + Math.random() * 9000)}`,
+        model_no: `EFT-${Math.floor(1000 + Math.random() * 9000)}`,
         price: '面议 / Negotiable',
-        specs: 'Manufactured from high-grade industrial alloys with micro-tolerance CNC machining. Delivers exceptional tensile durability, thermal endurance, and vibration dampening across severe operating conditions. 100% factory inspection ensures zero defect quality for export. Fully certified under ISO9001 and CE compliance standards.',
-        image_indices: [0]
+        specs: '100% Factory inspection ensures zero defect quality for export. Fully compliant with ISO9001 and CE standards.',
+        image_index: 0
       }
     ];
   }
 
-  // Bind the saved image URLs to each recognized product
+  // Bind and crop individual product images
   const nonVideoSaved = savedFiles.filter(f => !f.isVideo);
   const videoSaved = savedFiles.find(f => f.isVideo);
 
-  const finalProducts = recognizedProducts.map((p, idx) => {
-    let matchedUrls: string[] = [];
-    if (Array.isArray(p.image_indices) && p.image_indices.length > 0) {
-      matchedUrls = p.image_indices
-        .map((imgIdx: number) => nonVideoSaved[imgIdx]?.url)
-        .filter(Boolean);
+  const finalProducts: any[] = [];
+
+  for (let idx = 0; idx < recognizedProducts.length; idx++) {
+    const p = recognizedProducts[idx];
+    const imgIdx = (typeof p.image_index === 'number' && p.image_index >= 0 && p.image_index < nonVideoSaved.length)
+      ? p.image_index
+      : (Array.isArray(p.image_indices) && typeof p.image_indices[0] === 'number' && p.image_indices[0] < nonVideoSaved.length)
+        ? p.image_indices[0]
+        : (idx % (nonVideoSaved.length || 1));
+
+    const srcFile = nonVideoSaved[imgIdx] || nonVideoSaved[0];
+    let matchedUrls: string[] = srcFile ? [srcFile.url] : ['/images/factory.jpg'];
+
+    // Normalize bounding box if available
+    const normalizedBox = normalizeBox(p.box_2d);
+
+    // If bounding box is provided and srcFile exists, perform automatic sharp cropping for this model's photo
+    if (srcFile && fs.existsSync(srcFile.filepath) && normalizedBox) {
+      const [ymin, xmin, ymax, xmax] = normalizedBox;
+      const dy = ymax - ymin;
+      const dx = xmax - xmin;
+      // Ensure box has non-trivial size and doesn't span the entire canvas
+      if (dy > 20 && dx > 20 && (dy < 980 || dx < 980)) {
+        try {
+          const meta = await sharp(srcFile.filepath).metadata();
+          const origW = meta.width || 1000;
+          const origH = meta.height || 1000;
+
+          // Add generous 3.5% margin padding around the detected box to avoid clipping borders
+          const padY = Math.round(dy * 0.035);
+          const padX = Math.round(dx * 0.035);
+          const normYmin = Math.max(0, ymin - padY);
+          const normXmin = Math.max(0, xmin - padX);
+          const normYmax = Math.min(1000, ymax + padY);
+          const normXmax = Math.min(1000, xmax + padX);
+
+          const left = Math.max(0, Math.min(origW - 20, Math.floor((normXmin / 1000) * origW)));
+          const top = Math.max(0, Math.min(origH - 20, Math.floor((normYmin / 1000) * origH)));
+          const cropW = Math.max(20, Math.min(origW - left, Math.ceil(((normXmax - normXmin) / 1000) * origW)));
+          const cropH = Math.max(20, Math.min(origH - top, Math.ceil(((normYmax - normYmin) / 1000) * origH)));
+
+          if (cropW >= 20 && cropH >= 20 && (left + cropW <= origW) && (top + cropH <= origH)) {
+            const safeModel = (p.model_no || `prod_${idx}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+            const cropFilename = `cropped_${Date.now()}_${idx}_${safeModel}.jpg`;
+            const cropDest = path.join(prophotoDir, cropFilename);
+
+            // High-definition upscale & sharpness enhancement:
+            // Ensure minimum dimension is at least 800px using Lanczos3 resampling
+            let pipeline = sharp(srcFile.filepath).extract({ left, top, width: cropW, height: cropH });
+            const targetMin = 800;
+            if (cropW < targetMin || cropH < targetMin) {
+              const scale = Math.max(targetMin / cropW, targetMin / cropH, 1);
+              const targetW = Math.round(cropW * scale);
+              const targetH = Math.round(cropH * scale);
+              pipeline = pipeline.resize(targetW, targetH, {
+                kernel: sharp.kernel.lanczos3,
+                fit: 'fill'
+              });
+            }
+
+            // Apply unsharp mask filter to sharpen contours and labels, plus visual contrast tuning and 4:4:4 chroma
+            await pipeline
+              .sharpen({ sigma: 1.2, m1: 1.3, m2: 2.2 })
+              .modulate({ brightness: 1.02, saturation: 1.05 })
+              .jpeg({ quality: 95, chromaSubsampling: '4:4:4', mozjpeg: true })
+              .toFile(cropDest);
+
+            const croppedUrl = `/prophoto/${cropFilename}`;
+            // Set cropped image as primary hero thumbnail, original sheet as detail photo
+            matchedUrls = [croppedUrl, srcFile.url];
+          }
+        } catch (cropErr) {
+          console.log('[Info] Sharp crop error for product', p.model_no, cropErr);
+        }
+      }
     }
-    if (matchedUrls.length === 0) {
-      matchedUrls = recognizedProducts.length === 1
-        ? nonVideoSaved.map(f => f.url)
-        : [nonVideoSaved[idx % nonVideoSaved.length]?.url || nonVideoSaved[0]?.url];
-    }
-    return {
+
+    finalProducts.push({
       name: p.name || 'EFT高品质工业产品',
       subtitle: p.subtitle || 'High Reliability Export Product',
       cat_id: p.cat_id || 1,
@@ -879,8 +989,8 @@ Return strict JSON format:
       is_hot: false,
       seo_keywords: `${p.name || 'Product'}, China manufacturer export, OEM industrial supply Shanghai, HE Efficient and Industry Limited`,
       seo_description: `HE Efficient and Industry Limited exports ${p.name || 'products'} with strict quality control, prompt international shipping, and full compliance certifications.`
-    };
-  });
+    });
+  }
 
   res.json({
     success: true,

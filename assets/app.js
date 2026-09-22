@@ -808,10 +808,10 @@ const SmartRecognizeModal = () => {
           if (file.type && file.type.startsWith("image/")) {
             const img = new Image();
             img.onload = () => {
-              const maxDim = 1800;
+              const maxDim = 3200;
               let w = img.width;
               let h = img.height;
-              if (w > maxDim || h > maxDim) {
+              if (w > maxDim || h > maxDim || (file.size && file.size > 12 * 1024 * 1024)) {
                 if (w > h) {
                   h = Math.round((h * maxDim) / w);
                   w = maxDim;
@@ -824,8 +824,10 @@ const SmartRecognizeModal = () => {
                 canvas.height = h;
                 const ctx = canvas.getContext("2d");
                 if (ctx) {
+                  ctx.imageSmoothingEnabled = true;
+                  ctx.imageSmoothingQuality = "high";
                   ctx.drawImage(img, 0, 0, w, h);
-                  const compressed = canvas.toDataURL("image/jpeg", 0.9);
+                  const compressed = canvas.toDataURL("image/jpeg", 0.95);
                   resolve({
                     name: file.name,
                     size: compressed.length,
@@ -1001,7 +1003,6 @@ const SmartRecognizeModal = () => {
               children: [
                 r.jsxDEV("span", { className: "text-slate-500 font-semibold whitespace-nowrap mr-1", children: "快速定位:" }, void 0, false),
                 products.map((p, idx) => r.jsxDEV("button", {
-                  key: idx,
                   type: "button",
                   onClick: () => jumpToProduct(idx),
                   className: "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap border " +
@@ -1203,7 +1204,37 @@ const SmartRecognizeModal = () => {
                           value: p.img_url || "",
                           onChange: (e) => updateProductField(idx, "img_url", e.target.value),
                           className: "w-full p-2 border border-slate-300 rounded-lg text-xs font-mono focus:ring-1 focus:ring-red-500 focus:outline-hidden"
-                        }, void 0, false)
+                        }, void 0, false),
+                        Boolean(p.img_url && p.img_url.trim()) && r.jsxDEV("div", {
+                          className: "flex items-center gap-2 mt-1.5 p-1.5 bg-slate-50 border border-slate-200 rounded-lg",
+                          children: [
+                            r.jsxDEV("div", {
+                              className: "w-14 h-14 rounded-md border border-slate-200 bg-white flex items-center justify-center overflow-hidden shrink-0 shadow-xs",
+                              children: p.img_url.split(",")[0].trim() ? r.jsxDEV("img", {
+                                src: p.img_url.split(",")[0].trim(),
+                                alt: p.model_no || "Product thumbnail",
+                                className: "w-full h-full object-contain p-0.5",
+                                onError: (e) => { e.currentTarget.style.display = "none"; }
+                              }, void 0, false) : r.jsxDEV("span", { className: "text-slate-300 text-xs", children: "📷" }, void 0, false)
+                            }, void 0, false),
+                            r.jsxDEV("div", {
+                              className: "text-[11px] text-slate-600 leading-tight space-y-0.5 min-w-0 flex-1",
+                              children: [
+                                r.jsxDEV("div", {
+                                  className: "font-bold text-emerald-700 flex items-center gap-1",
+                                  children: [
+                                    r.jsxDEV("span", { children: "✂️" }, void 0, false),
+                                    p.img_url.includes("cropped_") ? "AI已自动裁切独立主图" : "产品图谱预览"
+                                  ]
+                                }, void 0, true),
+                                r.jsxDEV("p", {
+                                  className: "text-[10px] text-slate-500 truncate",
+                                  children: p.img_url.includes("cropped_") ? "已从图谱/规格表中自动提取该型号外观独立照片" : "可直接核对或更换图片地址"
+                                }, void 0, false)
+                              ]
+                            }, void 0, true)
+                          ]
+                        }, void 0, true)
                       ]
                     }, void 0, true)
                   ]
