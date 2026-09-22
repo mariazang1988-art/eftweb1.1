@@ -779,6 +779,8 @@ const SmartRecognizeModal = () => {
   const [statusMsg, setStatusMsg] = R.useState("");
   const [step, setStep] = R.useState(1); // 1: 上传选择媒体, 2: 确认发布新产品
   const [products, setProducts] = R.useState([]);
+  const [activeIdx, setActiveIdx] = R.useState(0);
+  const scrollContainerRef = R.useRef(null);
 
   R.useEffect(() => {
     const handler = () => {
@@ -787,6 +789,7 @@ const SmartRecognizeModal = () => {
       setProducts([]);
       setStatusMsg("");
       setStep(1);
+      setActiveIdx(0);
     };
     window.addEventListener("eft_open_smart_recognize", handler);
     return () => window.removeEventListener("eft_open_smart_recognize", handler);
@@ -882,6 +885,7 @@ const SmartRecognizeModal = () => {
       const data = await resp.json();
       if (data.success && Array.isArray(data.products) && data.products.length > 0) {
         setProducts(data.products);
+        setActiveIdx(0);
         setStep(2); // 进入确认发布界面
       } else {
         alert(data.error || "识别未能提取到有效产品信息，请重试或更换图片");
@@ -900,6 +904,25 @@ const SmartRecognizeModal = () => {
       copy[index] = { ...copy[index], [field]: value };
       return copy;
     });
+  };
+
+  const removeProduct = (index) => {
+    if (products.length <= 1) {
+      alert("至少保留 1 款产品，若需取消请点击底部【取消】");
+      return;
+    }
+    if (confirm("确定要移除第 " + (index + 1) + " 款产品吗？")) {
+      setProducts(prev => prev.filter((_, i) => i !== index));
+      setActiveIdx(prev => Math.min(prev, products.length - 2));
+    }
+  };
+
+  const jumpToProduct = (idx) => {
+    setActiveIdx(idx);
+    const target = document.getElementById("product-card-block-" + idx);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   const handleSaveAll = async () => {
@@ -939,9 +962,10 @@ const SmartRecognizeModal = () => {
   };
 
   return r.jsxDEV("div", {
-    className: "fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in select-none",
+    className: "fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/80 backdrop-blur-xs animate-in fade-in overflow-hidden",
     children: r.jsxDEV("div", {
-      className: "bg-white rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[92vh] flex flex-col overflow-hidden",
+      className: "bg-white rounded-2xl max-w-4xl w-full p-4 sm:p-5 shadow-2xl border border-slate-200 flex flex-col overflow-hidden",
+      style: { height: "92vh", maxHeight: "92vh", display: "flex", flexDirection: "column" },
       children: [
         // Header
         r.jsxDEV("div", {
@@ -954,7 +978,7 @@ const SmartRecognizeModal = () => {
                 r.jsxDEV("div", {
                   children: [
                     r.jsxDEV("h3", { className: "font-bold text-base text-slate-900", children: step === 1 ? "智能识图/视频添加产品" : "发布新产品 (确认AI识别结果)" }, void 0, false),
-                    r.jsxDEV("p", { className: "text-xs text-slate-500", children: step === 1 ? "可选择添加1张或多张图片，1条或多条视频。点击右下角【开始识别】自动提炼产品信息" : ("共识别到 " + products.length + " 款产品，可向下滚动逐一核对，确认后点击右下角【保存产品】") }, void 0, false)
+                    r.jsxDEV("p", { className: "text-xs text-slate-500", children: step === 1 ? "可选择添加1张或多张图片，1条或多条视频。点击右下角【开始识别】自动提炼产品信息" : ("共识别到 " + products.length + " 款产品，可自由滚动鼠标逐一核对，或点击下方标签快速定位") }, void 0, false)
                   ]
                 }, void 0, true)
               ]
@@ -968,11 +992,37 @@ const SmartRecognizeModal = () => {
           ]
         }, void 0, true),
 
+        // Step 2 Quick Navigation Bar
+        step === 2 && products.length > 1 ? r.jsxDEV("div", {
+          className: "shrink-0 py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl my-2 flex items-center justify-between gap-2 overflow-x-auto text-xs",
+          children: [
+            r.jsxDEV("div", {
+              className: "flex items-center gap-1.5 overflow-x-auto py-0.5",
+              children: [
+                r.jsxDEV("span", { className: "text-slate-500 font-semibold whitespace-nowrap mr-1", children: "快速定位:" }, void 0, false),
+                products.map((p, idx) => r.jsxDEV("button", {
+                  key: idx,
+                  type: "button",
+                  onClick: () => jumpToProduct(idx),
+                  className: "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer whitespace-nowrap border " +
+                    (activeIdx === idx ? "bg-red-600 text-white border-red-600 shadow-xs" : "bg-white text-slate-700 border-slate-300 hover:border-red-400 hover:text-red-600"),
+                  children: ["#" + (idx + 1) + " " + (p.model_no || p.name?.slice(0, 8) || ("产品" + (idx + 1)))]
+                }, idx, true))
+              ]
+            }, void 0, false),
+            r.jsxDEV("div", {
+              className: "shrink-0 text-slate-400 text-[11px] whitespace-nowrap pl-2 border-l border-slate-200 hidden sm:block",
+              children: "🖱️ 鼠标滚轮可自由上下滑动"
+            }, void 0, false)
+          ]
+        }, void 0, true) : null,
+
         // Body
         step === 1 ? (
           // Step 1: Upload and pick files
           r.jsxDEV("div", {
-            className: "flex-1 overflow-y-auto space-y-4 pr-1 text-xs",
+            className: "flex-1 min-h-0 overflow-y-auto space-y-4 pr-1 text-xs overscroll-contain",
+            style: { minHeight: 0, flex: "1 1 0%", overflowY: "auto" },
             children: [
               r.jsxDEV("div", {
                 className: "border-2 border-dashed border-purple-300 hover:border-purple-500 rounded-xl p-6 text-center bg-purple-50/40 transition-colors cursor-pointer relative",
@@ -996,7 +1046,6 @@ const SmartRecognizeModal = () => {
                   }, void 0, true)
                 ]
               }, void 0, true),
-
               files.length > 0 && r.jsxDEV("div", {
                 className: "space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200",
                 children: [
@@ -1015,7 +1064,6 @@ const SmartRecognizeModal = () => {
                   r.jsxDEV("div", {
                     className: "grid grid-cols-4 sm:grid-cols-6 gap-2",
                     children: files.map((f, i) => r.jsxDEV("div", {
-                      
                       className: "relative rounded-lg overflow-hidden border border-slate-200 bg-white aspect-square shadow-xs",
                       children: [
                         f.type.startsWith("image/") ? r.jsxDEV("img", { src: f.data, alt: f.name, className: "w-full h-full object-cover" }, void 0, false) : r.jsxDEV("div", { className: "w-full h-full flex flex-col items-center justify-center text-xs font-bold text-slate-600 bg-slate-100", children: ["🎬 视频", r.jsxDEV("span", { className: "text-[9px] text-slate-400 font-normal", children: "MP4" }, void 0, false)] }, void 0, true),
@@ -1025,7 +1073,6 @@ const SmartRecognizeModal = () => {
                   }, void 0, false)
                 ]
               }, void 0, true),
-
               statusMsg && r.jsxDEV("div", {
                 className: "p-3 rounded-xl bg-purple-50 border border-purple-200 text-purple-800 text-xs font-medium animate-pulse flex items-center gap-2",
                 children: ["⏳ ", statusMsg]
@@ -1033,12 +1080,15 @@ const SmartRecognizeModal = () => {
             ]
           }, void 0, true)
         ) : (
-          // Step 2: "发布新产品" Review & Confirmation View (with multiple dashed line separators)
+          // Step 2: "发布新产品" Review & Confirmation View
           r.jsxDEV("div", {
-            className: "flex-1 overflow-y-auto space-y-6 pr-2 text-xs",
+            ref: scrollContainerRef,
+            id: "smart-recognize-products-container",
+            className: "flex-1 min-h-0 overflow-y-auto space-y-6 pr-2 text-xs overscroll-contain",
+            style: { minHeight: "0px", maxHeight: "100%", flex: "1 1 0%", overflowY: "auto", WebkitOverflowScrolling: "touch" },
             children: products.map((p, idx) => r.jsxDEV("div", {
-              
-              className: "space-y-4",
+              id: "product-card-block-" + idx,
+              className: "space-y-4 pt-1",
               children: [
                 // Horizontal dashed line divider between products
                 idx > 0 && r.jsxDEV("div", {
@@ -1051,15 +1101,30 @@ const SmartRecognizeModal = () => {
 
                 // Section header
                 r.jsxDEV("div", {
-                  className: "flex items-center justify-between bg-red-50 border border-red-200 px-3.5 py-2 rounded-lg",
+                  className: "flex items-center justify-between bg-red-50 border border-red-200 px-3.5 py-2.5 rounded-lg",
                   children: [
                     r.jsxDEV("h4", {
                       className: "font-bold text-sm text-red-700 flex items-center gap-2",
-                      children: ["📦 发布新产品" + (products.length > 1 ? (idx + 1) : ""), r.jsxDEV("span", { className: "text-xs font-normal text-slate-500", children: "(请核对并可直接编辑以下信息)" }, void 0, false)]
+                      children: [
+                        "📦 发布新产品" + (products.length > 1 ? (idx + 1) : ""),
+                        r.jsxDEV("span", { className: "text-xs font-normal text-slate-500", children: "(请核对并可直接编辑以下信息)" }, void 0, false)
+                      ]
                     }, void 0, true),
-                    r.jsxDEV("span", {
-                      className: "text-[11px] text-slate-500 font-mono",
-                      children: ["#0" + (idx + 1) + " / 共" + products.length + "款"]
+                    r.jsxDEV("div", {
+                      className: "flex items-center gap-3",
+                      children: [
+                        r.jsxDEV("span", {
+                          className: "text-[11px] text-slate-500 font-mono font-bold bg-white px-2 py-0.5 rounded border border-red-200",
+                          children: ["#0" + (idx + 1) + " / 共" + products.length + "款"]
+                        }, void 0, true),
+                        products.length > 1 && r.jsxDEV("button", {
+                          type: "button",
+                          onClick: () => removeProduct(idx),
+                          className: "text-xs text-red-500 hover:text-red-700 hover:underline cursor-pointer flex items-center gap-0.5",
+                          title: "若不需要此款，可点击移除",
+                          children: ["🗑️ 移除此款"]
+                        }, void 0, true)
+                      ]
                     }, void 0, true)
                   ]
                 }, void 0, true),
@@ -1079,7 +1144,6 @@ const SmartRecognizeModal = () => {
                         }, void 0, false)
                       ]
                     }, void 0, true),
-
                     r.jsxDEV("div", {
                       children: [
                         r.jsxDEV("label", { className: "block font-semibold text-slate-700 mb-1", children: "英文副标题 / 简述 (自动翻译/匹配)" }, void 0, false),
@@ -1091,7 +1155,6 @@ const SmartRecognizeModal = () => {
                         }, void 0, false)
                       ]
                     }, void 0, true),
-
                     r.jsxDEV("div", {
                       children: [
                         r.jsxDEV("label", { className: "block font-semibold text-slate-700 mb-1", children: "所属分类" }, void 0, false),
@@ -1110,7 +1173,6 @@ const SmartRecognizeModal = () => {
                         }, void 0, true)
                       ]
                     }, void 0, true),
-
                     r.jsxDEV("div", {
                       children: [
                         r.jsxDEV("label", { className: "block font-semibold text-slate-700 mb-1", children: "产品型号 (Model No.)" }, void 0, false),
@@ -1122,7 +1184,6 @@ const SmartRecognizeModal = () => {
                         }, void 0, false)
                       ]
                     }, void 0, true),
-
                     r.jsxDEV("div", {
                       children: [
                         r.jsxDEV("label", { className: "block font-semibold text-slate-700 mb-1", children: "参考价格" }, void 0, false),
@@ -1134,7 +1195,6 @@ const SmartRecognizeModal = () => {
                         }, void 0, false)
                       ]
                     }, void 0, true),
-
                     r.jsxDEV("div", {
                       children: [
                         r.jsxDEV("label", { className: "block font-semibold text-slate-700 mb-1", children: "产品主图 URL (支持逗号多张)" }, void 0, false),
@@ -1168,15 +1228,14 @@ const SmartRecognizeModal = () => {
 
         // Footer buttons
         r.jsxDEV("div", {
-          className: "border-t border-slate-100 pt-3 flex items-center justify-between shrink-0",
+          className: "border-t border-slate-100 pt-3 mt-1 flex items-center justify-between shrink-0 bg-white",
           children: [
             step === 2 ? r.jsxDEV("button", {
               type: "button",
               onClick: () => setStep(1),
-              className: "px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-600 text-xs cursor-pointer font-medium",
+              className: "px-3.5 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-600 text-xs cursor-pointer font-medium",
               children: "← 返回重新选择"
             }, void 0, false) : r.jsxDEV("span", { className: "text-slate-400 text-xs", children: "支持任意工业配件、机械成套设备与电子元器件" }, void 0, false),
-
             r.jsxDEV("div", {
               className: "flex items-center gap-2",
               children: [
@@ -1186,24 +1245,24 @@ const SmartRecognizeModal = () => {
                   className: "px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-600 text-xs font-semibold cursor-pointer",
                   children: "取消"
                 }, void 0, false),
-
                 step === 1 ? r.jsxDEV("button", {
                   type: "button",
                   disabled: loading || files.length === 0,
                   onClick: startRecognize,
-                  style: { background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)", color: "#ffffff" }, className: "px-5 py-2 rounded-lg text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50",
+                  style: { background: "linear-gradient(135deg, #059669 0%, #0d9488 100%)", color: "#ffffff" },
+                  className: "px-5 py-2 rounded-lg text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md disabled:opacity-50",
                   children: [
                     loading && r.jsxDEV("span", { className: "animate-spin", children: "⏳" }, void 0, false),
                     r.jsxDEV("span", { children: loading ? "AI 识别中..." : "开始识别 (" + files.length + ")" }, void 0, false)
                   ]
                 }, void 0, true) : r.jsxDEV("button", {
                   type: "button",
-                  disabled: loading,
+                  disabled: loading || products.length === 0,
                   onClick: handleSaveAll,
                   className: "px-6 py-2 rounded-lg bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md",
                   children: [
                     loading && r.jsxDEV("span", { className: "animate-spin", children: "⏳" }, void 0, false),
-                    r.jsxDEV("span", { children: "保存产品 (" + products.length + "款)" }, void 0, false)
+                    r.jsxDEV("span", { children: "保存全部 " + products.length + " 款产品到数据库" }, void 0, false)
                   ]
                 }, void 0, true)
               ]
