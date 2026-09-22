@@ -745,20 +745,30 @@ app.post('/api/products/smart-recognize', async (req, res) => {
       const promptText = `You are an expert industrial manufacturing and product catalog specialist for HE Efficient and Industry Limited (E.F.T.).
 Carefully inspect the provided product image(s) or catalog pages.
 
-CRITICAL INSTRUCTION FOR MULTI-MODEL CATALOG PAGES / SPECIFICATION TABLES:
-Inspect the images very carefully for tables (e.g. "规格: Specification", 参数表, 选型表, 型号表), lists, or multiple sub-sections showing different models/types (such as different model numbers like CXH1-1D, CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D, or different product names like 右舷灯, 左舷灯, 桅灯, 艉灯, 环照灯).
-Whenever an image or set of images contains a table or listing of MULTIPLE MODELS / TYPES, YOU MUST EXTRACT EVERY SINGLE ROW/MODEL AS AN INDIVIDUAL PRODUCT ITEM in the "products" array!
-DO NOT summarize or combine them into a single "series" product (like "CXH系列").
-If there are 5 models in the table/drawings, you MUST output an array of 5 separate products.
+CRITICAL MANDATE FOR MULTI-MODEL CATALOG PAGES / SPECIFICATION TABLES:
+1. ALWAYS inspect the image(s) for tables (e.g. "规格: Specification", 参数表, 选型表, 型号表, 规格参数), lists, or multiple sub-sections showing different models/types (such as model numbers like CXH1-1D, CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D, or product types like 右舷灯, 左舷灯, 桅灯, 艉灯, 环照灯).
+2. DO NOT output a single consolidated "series" product (such as "CXH-1D 单层航行信号灯" or "CXH系列").
+3. EVERY ROW OR SUB-MODEL in a specification table represents an INDEPENDENT PRODUCT. You MUST output an individual product item for each model row!
+   For example, in a marine signal light catalog page:
+   - Model CXH1-1D (右舷灯 starboard light, 绿光 Green, 112.5°, 3n.m) -> Product 1
+   - Model CXH2-1D (左舷灯 port light, 红光 Red, 112.5°, 3n.m) -> Product 2
+   - Model CXH3-1D (桅灯 masthead light, 明光 Transparent/White, 225°, 6n.m) -> Product 3
+   - Model CXH4-1D (艉灯 stern light, 明光/黄光 Transparent/Yellow, 135°, 3n.m) -> Product 4
+   - Model CXH6-1D (环照灯 all-round light, 红/绿/明光, 360°, 3n.m) -> Product 5
+   If a table has 5 distinct models, your "products" array MUST contain exactly 5 separate product items!
+4. MULTI-IMAGE CORRELATION:
+   If multiple images are provided (e.g. Image 0 has the catalog text and specification table, and Image 1 has the physical photos or CAD drawings of the various models):
+   - Cross-reference the models across both images.
+   - For "image_indices", list the 0-based index of the image(s) where this model appears (e.g. [0] for CXH1-1D, [1] or [1, 0] for CXH2-1D, CXH3-1D, CXH4-1D, CXH6-1D).
 
 For each distinct product identified:
 1. "name": Descriptive, professional Chinese product title including the specific model and function (e.g. "CXH1-1D 单层船用右舷灯 (绿光 3海里)")
 2. "subtitle": Accurate English subtitle / translation (maximum 15 words) (e.g. "CXH1-1D Single-Deck Marine Starboard Navigation Light Green 3nm")
-3. "cat_id": Category ID (1:工业设备, 3:生产装备, 4:发电机组, 5:汽摩配件, 7:电子电气, 8:医疗器械, 9:机械五金)
-4. "cat_name": Chinese category name matching cat_id (e.g. 电子电气 or 工业设备)
-5. "model_no": Specific model number from the catalog/table (e.g. "CXH1-1D" or "EFT-CXH1-1D")
+3. "cat_id": Category ID (1:工业设备, 3:生产装备, 4:发电机组, 5:汽摩配件, 7:电子电气, 8:医疗器械, 9:机械五金). For marine electrical / navigation signal lights, use 7:电子电气 or 1:工业设备.
+4. "cat_name": Chinese category name matching cat_id (e.g. "电子电气" or "工业设备")
+5. "model_no": Specific model number from the catalog/table (e.g. "CXH1-1D", "CXH2-1D", "CXH3-1D", "CXH4-1D", "CXH6-1D")
 6. "price": "面议 / Negotiable"
-7. "specs": 3 to 6 comprehensive sentences of product introduction (Specs), describing the specific model parameters extracted from the table (such as optical arc/angle, visibility distance, light color, protection class IP55, voltage/power, material, standard compliance ISO9001/CE/RoHS).
+7. "specs": 3 to 6 comprehensive sentences of product introduction (Specs), describing the specific model parameters extracted from the table (such as optical arc/angle, visibility distance, light color, protection class IP55, voltage/power, material steel, standard compliance ISO9001/CE/RoHS).
 8. "image_indices": 0-based array of image indices from the provided photos where this item appears (e.g. [0] or [1] or [0, 1]).
 
 Return strict JSON format:
@@ -779,7 +789,7 @@ Return strict JSON format:
 }`;
 
       const contents = [...imageParts, { text: promptText }];
-      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash'];
+      const candidateModels = ['gemini-3.1-flash-lite', 'gemini-flash-latest', 'gemini-3.8-flash'];
       for (const model of candidateModels) {
         let tId: NodeJS.Timeout | null = null;
         try {
@@ -798,7 +808,7 @@ Return strict JSON format:
           const resp = await Promise.race([
             genPromise,
             new Promise<never>((_, reject) => {
-              tId = setTimeout(() => reject(new Error('Timeout')), 12000);
+              tId = setTimeout(() => reject(new Error('Timeout')), 45000);
             })
           ]);
           if (tId) clearTimeout(tId);
