@@ -1,0 +1,45 @@
+# Nginx configuration example for E.F.T. Enterprise Website (www.efficientsh.com)
+# Place this in your /etc/nginx/sites-available/ or Baota/cPanel Nginx config
+
+server {
+    listen 80;
+    server_name www.efficientsh.com efficientsh.com;
+    root /www/wwwroot/efficientsh.com;
+    index index.php index.html index.htm;
+
+    # Charset
+    charset utf-8;
+
+    # Max upload size (for product images & backups)
+    client_max_body_size 50M;
+
+    # Static assets cache
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|mp4|webm)$ {
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+        try_files $uri $uri/ =404;
+    }
+
+    # API Routing
+    location /api {
+        try_files $uri $uri/ /api/index.php?$query_string;
+    }
+
+    # General SPA Routing & PHP Processing
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP-FPM Handling
+    location ~ \.php$ {
+        include fastcgi_params;
+        fastcgi_pass 127.0.0.1:9000; # or unix:/var/run/php/php-fpm.sock
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Deny access to sensitive files
+    location ~ /\.(ht|git|env) {
+        deny all;
+    }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "E.F.T. Enterprise Website - HE Efficient and Industry Limited",
+  "description": "HE Efficient and Industry Limited 6-language enterprise product website with dynamic database, online customer service, visitor tracking, inquiries, and management portal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

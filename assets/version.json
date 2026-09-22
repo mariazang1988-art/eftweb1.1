@@ -1,0 +1,14 @@
+{
+  "name": "E.F.T. Production Web Assets",
+  "bundle": "app.js",
+  "style": "index.css",
+  "version": "1.0.0",
+  "build": "production",
+  "files": [
+    "app.js",
+    "index.css",
+    "version.json"
+  ],
+  "generated_at": "2026-09-17",
+  "description": "Pre-compiled production bundle for standalone VPS deployment (Zero npm install required)"
+}
