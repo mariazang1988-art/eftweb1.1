@@ -903,10 +903,14 @@ app.post('/api/news', (req, res) => {
 
   const body = req.body || {};
   const nextId = db.news.reduce((max: number, n: any) => Math.max(max, Number(n.id) || 0), 0) + 1;
-  const newNews = {
+  const pubDate = body.publish_date || body.date || new Date().toISOString().substring(0, 10);
+  const newNews: any = {
     id: nextId,
     title: body.title || '企业最新动态',
-    date: body.date || new Date().toISOString().substring(0, 10),
+    date: pubDate,
+    publish_date: pubDate,
+    category: body.category || '企业动态',
+    summary: body.summary || (body.content ? String(body.content).slice(0, 120) : ''),
     content: body.content || '',
     author: body.author || 'E.F.T. 国际业务部',
     created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
@@ -914,7 +918,12 @@ app.post('/api/news', (req, res) => {
 
   db.news.unshift(newNews);
   writeDb(db);
-  res.status(201).json({ success: true, news: newNews });
+  // Return the new item with nested properties for both direct item and wrapped item access
+  res.status(201).json({
+    ...newNews,
+    success: true,
+    news: newNews
+  });
 });
 
 app.put('/api/news/:id', (req, res) => {

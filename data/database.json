@@ -1,6 +1,42 @@
 {
   "products": [
     {
+      "id": 25,
+      "cat_id": 8,
+      "cat_name": "医疗器械",
+      "name": "三功能医院医用电动全自动升降护理床五功能前倾后倾电动护理床",
+      "subtitle": "3-Function & 5-Function Electric Hospital Nursing Bed with Automatic Height Adjustment and Trendelenburg Tilt",
+      "model_no": "EFT-MD-0370",
+      "price": "面议 / Negotiable",
+      "specs": "This premium medical nursing bed features a reinforced cold-rolled steel frame with an electrostatic powder coating for superior corrosion resistance and long-term durability. It is equipped with medical-grade electric actuators offering smooth, quiet 3-function or 5-function adjustments, including height elevation, backrest, leg-rest, and Trendelenburg/Reverse Trendelenburg tilt capabilities. Designed for safety and efficiency in clinical environments, the bed features detachable ABS head and foot boards, tuck-away side rails, and high-load capacity central-locking casters. Every unit undergoes rigorous multi-stage quality control inspections to ensure full compliance with ISO9001, CE, and RoHS international medical equipment safety standards. Engineered for both ICU and general ward use, this model provides optimal ergonomic support for patients while ensuring high-precision control for nursing staff.",
+      "img_url": "/prophoto/sourced_1790051031157_0_9ce1e926.jpg, /prophoto/sourced_1790051031224_1_49288df7.jpg, /prophoto/sourced_1790051031258_2_7110e28e.jpg, /prophoto/sourced_1790051031287_3_4b5e31b3.jpg, /prophoto/sourced_1790051031308_4_f630db00.jpg, /prophoto/sourced_1790051031326_5_21b61e88.jpg",
+      "video_url": "https://cloud.video.taobao.com/play/u/2218630594620/p/2/e/6/t/1/543039292871.mp4",
+      "is_hot": true,
+      "stock": 200,
+      "ecommerce_price": 68,
+      "seo_keywords": "三功能医院医用电动全自动升降护理床五功能前倾后倾电动护理床, China manufacturer export, OEM industrial supply Shanghai, HE Efficient and Industry Limited",
+      "seo_description": "HE Efficient and Industry Limited exports 三功能医院医用电动全自动升降护理床五功能前倾后倾电动护理床 with strict quality control, prompt international shipping, and full compliance certifications.",
+      "created_at": "2026-09-22 04:23:59"
+    },
+    {
+      "id": 24,
+      "cat_id": 8,
+      "cat_name": "医疗器械",
+      "name": "三功能医院医用电动全自动升降护理床五功能前倾后倾电动护理床",
+      "subtitle": "3-Function & 5-Function Electric Hospital Nursing Bed with Automatic Height Adjustment and Trendelenburg Tilt",
+      "model_no": "EFT-MD-0370",
+      "price": "面议 / Negotiable",
+      "specs": "Engineered for superior patient care and clinical versatility, this electric hospital nursing bed is constructed from high-strength cold-rolled steel with an anti-microbial powder-coated finish for optimal hygiene and durability. It features precision-controlled electric linear actuators that enable seamless adjustment of backrest elevation, leg support, overall height lifting, and advanced 5-function Trendelenburg/Reverse Trendelenburg tilting positions (+/- 12° to 15°). Equipped with high-grade PP tuck-away side rails, removable ABS head/footboards, and 125mm central-locking noiseless swivel casters, the bed ensures maximum patient safety and effortless maneuverability. Built to withstand continuous duty cycles with a safe working load (SWL) of up to 250 kg and precise movement tolerances, it ideal for ICU wards, long-term care facilities, and medical rehabilitation centers. Every unit undergoes rigorous load testing and electro-mechanical quality control in compliance with ISO13485, CE (MDR), and RoHS international export standards.",
+      "img_url": "/prophoto/sourced_1790050029971_0_9ce1e926.jpg, /prophoto/sourced_1790050030207_1_49288df7.jpg, /prophoto/sourced_1790050030886_2_7110e28e.jpg, /prophoto/sourced_1790050031106_3_4b5e31b3.jpg, /prophoto/sourced_1790050031850_4_f630db00.jpg, /prophoto/sourced_1790050032052_5_21b61e88.jpg",
+      "video_url": "https://cloud.video.taobao.com/play/u/2218630594620/p/2/e/6/t/1/543039292871.mp4",
+      "is_hot": true,
+      "stock": 200,
+      "ecommerce_price": 68,
+      "seo_keywords": "三功能医院医用电动全自动升降护理床五功能前倾后倾电动护理床, China manufacturer export, OEM industrial supply Shanghai, HE Efficient and Industry Limited",
+      "seo_description": "HE Efficient and Industry Limited exports 三功能医院医用电动全自动升降护理床五功能前倾后倾电动护理床 with strict quality control, prompt international shipping, and full compliance certifications.",
+      "created_at": "2026-09-22 04:07:35"
+    },
+    {
       "id": 23,
       "cat_id": 11,
       "cat_name": "橡塑制品",
@@ -390,6 +426,30 @@
     }
   ],
   "news": [
+    {
+      "id": 11,
+      "title": "行业突破: 全球首款玻璃基射频芯片模组实现量产，彻底摆脱MLCC供应限制",
+      "date": "2026-09-22",
+      "content": "【技术背景与突破】随着无线通信技术向6G及低轨卫星互联网迈进...",
+      "author": "E.F.T. 国际业务部",
+      "created_at": "2026-09-22 04:28:03"
+    },
+    {
+      "id": 10,
+      "title": "行业重大突破：全球首款玻璃基射频芯片模组正式量产，重塑半导体供应链格局",
+      "date": "2026-09-22",
+      "content": "### 背景概述\n随着6G通信与低轨卫星互联网技术的飞速发展，市场对高频段、高集成度射频前端解决方案的需求日益增长。近日，总部位于宁波的电波微讯（宁波）通信技术有限公司宣布其自主研发的GlassRadio技术平台取得里程碑式成果——全球首款玻璃基射频芯片dBT5321A已正式进入规模化量产阶段。\n\n### 技术突破与产品优势\ndBT5321A芯片专注于无线图传与远程工业监控领域。其核心技术亮点在于：\n1. **极简集成化**：模组尺寸仅为2mm x 2mm x 0.55mm，面积与厚度均优于国际同类产品。通过多层RDL互联与巨量TGV阵列技术，该芯片彻底摒弃了传统分立SMD阻容感贴片。\n2. **供应链自主**：通过玻璃基工艺，彻底摆脱了传统MLCC（多层陶瓷电容器）产能紧缺及价格波动带来的供应链风险。\n3. **性能提升**：与传统树脂基板相比，玻璃衬底显著降低了介质损耗，且热膨胀系数与芯片匹配度极高，从根源上解决了高频信号衰减及温差失效难题。\n\n### 行业与市场影响\n该款芯片的量产标志着玻璃基射频技术从概念阶段正式步入产业化落地的关键窗口期。电波微讯依托涵盖欧美日韩印等地的26项核心发明专利，成功在三维螺旋电感与TGV巨量通孔工艺领域筑起技术壁垒。对于国内集成电路行业而言，这不仅是产品层面的创新，更是推动高端芯片产业链实现自主可控的重要变量。\n\n### 未来展望\n随着通信技术向更高频段演进，玻璃基芯片将凭借其卓越的电气特性与结构优势，成为高性能通信射频前端的主流选择。电波微讯的此次突破，预示着行业正迎来新一轮的技术变革，未来将进一步赋能智能制造与卫星互联网等高技术领域，助力全球无线通信产业向更轻量、更高效的方向迈进。",
+      "author": "E.F.T. 国际业务部",
+      "created_at": "2026-09-22 04:24:26"
+    },
+    {
+      "id": 9,
+      "title": "行业突破：全球首款玻璃基射频芯片模组实现量产，赋能智能制造新生态",
+      "date": "2026-09-22",
+      "content": "### 背景概述\n随着6G通信技术与低轨卫星互联网的加速发展，市场对高频段、高集成度射频前端芯片的需求日益增长。近日，总部位于宁波的电波微讯（宁波）通信技术有限公司发布重磅消息：公司自主研发的全球首款玻璃基射频芯片模组（型号：dBT5321A）已正式投入量产，标志着射频前端技术迈向全新阶段。\n\n### 技术突破与看点\ndBT5321A芯片基于电波微讯自主研发的GlassRadio全栈技术体系打造，在设计与工艺上实现多项创新：\n1. 极致集成：模组尺寸仅为2mm x 2mm x 0.55mm，面积与厚度较国际同类产品显著优化，并成功摒弃了分立SMD阻容感贴片。\n2. 结构创新：由多层RDL互联与巨量TGV（玻璃通孔）阵列构成，内部集成了功率放大器（PA）、低噪声放大器（LNA）、射频开关及SAW滤波器等核心器件。\n3. 材质优势：玻璃衬底的介质损耗较传统树脂基板低一个数量级，且其热膨胀系数与芯片高度匹配，有效解决了高频信号衰减及热应力失效难题。\n\n### 行业与市场影响\n此次量产的深远意义在于，它通过技术替代从根源上化解了“电子工业大米”MLCC供应不稳定带来的成本与产能波动风险。对于工业自动化、无线图传等领域而言，该产品的出现不仅提升了设备集成的紧凑度，更显著降低了射频前端的系统失效概率，增强了供应链的自主可控能力。\n\n### 未来展望\n电波微讯目前已累计申请核心发明专利26项，其中多项为PCT国际专利，展示了在玻璃基芯片领域的技术深耕。在万物互联的背景下，玻璃基射频芯片的量产落地不仅是单点的工艺突破，更是国内芯片产业链在尖端封测领域的一次重要跨越。未来，随着该技术的进一步迭代与规模效应显现，有望在卫星通信及更多高性能工业场景中获得广泛应用，推动相关产业向更高效、更稳定的方向转型升级。",
+      "author": "E.F.T. 国际业务部",
+      "created_at": "2026-09-22 04:06:42"
+    },
     {
       "id": 8,
       "title": "打破供应链桎梏：全球首款玻璃基射频芯片模组实现量产，引领高频通信新变革",
@@ -850,9 +910,179 @@
       "message": "You can reach our Sales Director, Mr. Pu, at +86 021-6257 8368 or by mobile at +86 18916169406. You may also contact him via email at sales@efficientsh.com for any inquiries.",
       "is_read": 0,
       "created_at": "2026-09-22 02:53:26"
+    },
+    {
+      "id": "msg_1790049961238",
+      "ip": "127.0.0.1",
+      "user_email": "david8slayer@gmail.com",
+      "user_phone": "18916169506",
+      "role": "user",
+      "message": "are you a AI? or a real human?",
+      "is_read": 0,
+      "created_at": "2026-09-22 04:06:01"
+    },
+    {
+      "id": "msg_1790049962172",
+      "ip": "127.0.0.1",
+      "user_email": "david8slayer@gmail.com",
+      "user_phone": "18916169506",
+      "role": "bot",
+      "message": "I am the official AI Customer Service Assistant for HE Efficient and Industry Limited (E.F.T.). I am here to assist you with product information, inquiries, or to connect you with our Sales Director, Mr. Pu.",
+      "is_read": 0,
+      "created_at": "2026-09-22 04:06:02"
     }
   ],
   "visitors": [
+    {
+      "id": 1790051013164,
+      "ip": "127.0.0.1",
+      "page": "/admin/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:23:32"
+    },
+    {
+      "id": 1790050966086,
+      "ip": "127.0.0.1",
+      "page": "/product/class/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:22:45"
+    },
+    {
+      "id": 1790050933078,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:22:12"
+    },
+    {
+      "id": 1790050932961,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:22:12"
+    },
+    {
+      "id": 1790050470645,
+      "ip": "127.0.0.1",
+      "page": "/product/class/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:14:29"
+    },
+    {
+      "id": 1790050450868,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:14:10"
+    },
+    {
+      "id": 1790050450960,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:14:10"
+    },
+    {
+      "id": 1790050065784,
+      "ip": "127.0.0.1",
+      "page": "/product/class/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:07:45"
+    },
+    {
+      "id": 1790050064221,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:07:43"
+    },
+    {
+      "id": 1790049969852,
+      "ip": "127.0.0.1",
+      "page": "/admin/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:06:09"
+    },
+    {
+      "id": 1790049911990,
+      "ip": "127.0.0.1",
+      "page": "/product/class/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:05:11"
+    },
+    {
+      "id": 1790049889962,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:04:49"
+    },
+    {
+      "id": 1790049889444,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "Google 搜索引擎 (https://aistudio.google.com/)",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:04:49"
+    },
+    {
+      "id": 1790049838888,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "https://ais-dev-duw2gx37wirllxfyb4diod-259864977174.us-west2.run.app/",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:03:58"
+    },
+    {
+      "id": 1790049839114,
+      "ip": "127.0.0.1",
+      "page": "/",
+      "stay_seconds": 1,
+      "referrer": "https://ais-dev-duw2gx37wirllxfyb4diod-259864977174.us-west2.run.app/",
+      "os": "Windows PC",
+      "browser": "Google Chrome",
+      "created_at": "2026-09-22 04:03:58"
+    },
     {
       "id": 1790045142991,
       "ip": "127.0.0.1",
