@@ -154,6 +154,13 @@ app.use('/eftphoto', express.static(path.join(ROOT_DIR, 'eftphoto'), staticCache
 app.use('/images', express.static(path.join(ROOT_DIR, 'images'), staticCacheOptions));
 app.use('/logo', express.static(path.join(ROOT_DIR, 'logo'), staticCacheOptions));
 app.use('/videos', express.static(path.join(ROOT_DIR, 'videos'), staticCacheOptions));
+// Serve app.js with no-cache to guarantee live preview and updates load immediately
+app.get('/assets/app.js', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(ROOT_DIR, 'assets', 'app.js'));
+});
 app.use('/assets', express.static(path.join(ROOT_DIR, 'assets'), staticCacheOptions));
 app.use('/download', express.static(DOWNLOAD_DIR));
 
